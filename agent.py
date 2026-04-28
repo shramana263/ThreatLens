@@ -4,6 +4,7 @@ from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
 from tools import tools_list
 import os
+from langchain_core.messages import SystemMessage
 
 # 1. Define the State
 # This 'messages' list will store the whole conversation, including tool outputs.
@@ -22,7 +23,21 @@ model_with_tools = llm.bind_tools(tools_list)
 def call_model(state: AgentState):
     """The brain node: Decides what to do next."""
     messages = state['messages']
-    response = model_with_tools.invoke(messages)
+    
+    # Define the professional, end-user oriented persona
+    system_prompt = SystemMessage(content=(
+        "You are 'ThreatLens AI', an elite cybersecurity analyst designed for common users. "
+        "Your goal is to investigate emails and provide clear, non-technical safety verdicts. "
+        "\n\nRULES:\n"
+        "1. Use the 'check_domain_age' and 'scan_url' tools to gather evidence.\n"
+        "2. If a domain is malicious, use 'draft_takedown_report' to prepare a response.\n"
+        "3. FINAL RESPONSE: Do not show raw JSON, signatures, or technical tool names. "
+        "Instead of 'WHOIS check failed', say 'We couldn't find a registered owner for this site.' "
+        "Use bold text for safety warnings and keep your tone helpful yet firm."
+    ))
+    
+    # Prepend the system prompt to the message list
+    response = model_with_tools.invoke([system_prompt] + messages)
     return {"messages": [response]}
 
 def should_continue(state: AgentState):
